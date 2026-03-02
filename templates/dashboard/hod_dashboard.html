@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block page_title %}HoD Dashboard{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+
+    <!-- Stats Card -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Overview</h4>
+        <div style="margin-top: 1rem;">
+            <p><strong>Department:</strong> {{ department.name|default:"Not Assigned" }}</p>
+            <p><strong>Total Sessions:</strong> {{ total_sessions }}</p>
+            <p><strong>Total Staff:</strong> {{ staff_users.count }}</p>
+            <p><strong>Total Students:</strong> {{ student_users.count }}</p>
+        </div>
+
+        <h5 style="margin-top: 1.5rem;">Subject Attendance %</h5>
+        <ul style="margin-top: 0.5rem; padding-left: 1rem;">
+            {% for stat in subject_stats %}
+            <li>{{ stat.subject.name }}: {{ stat.percentage }}%</li>
+            {% empty %}
+            <li>No attendance data yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Create User Card -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Create User (Staff/Student)</h4>
+        <form method="post" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_user">
+
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" class="form-control" required>
+                    <option value="STAFF">Staff</option>
+                    <option value="STUDENT">Student</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Username (Roll No/Staff ID)</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label>First Name</label>
+                    <input type="text" name="first_name" class="form-control" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Last Name</label>
+                    <input type="text" name="last_name" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%;">Create User</button>
+        </form>
+    </div>
+
+    <!-- Create Subject Card -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Create Subject</h4>
+        {% if department %}
+        <form method="post" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_subject">
+
+            <div class="form-group">
+                <label>Subject Name</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label>Subject Code</label>
+                <input type="text" name="code" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%;">Create Subject</button>
+        </form>
+        {% else %}
+        <p style="color: red; margin-top: 1rem;">You must be assigned to a department to create subjects.</p>
+        {% endif %}
+    </div>
+
+    <!-- Assign Staff to Subject Card -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Assign Staff to Subject</h4>
+        <form method="post" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_staff">
+
+            <div class="form-group">
+                <label>Subject</label>
+                <select name="subject_id" class="form-control" required>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Staff</label>
+                <select name="staff_id" class="form-control" required>
+                    {% for staff in staff_users %}
+                    <option value="{{ staff.id }}">{{ staff.get_full_name|default:staff.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%;">Assign</button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

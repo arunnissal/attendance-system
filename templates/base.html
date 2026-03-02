@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart Attendance{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #90EE90;
+            /* Light Green */
+            --primary-dark: #7acb7a;
+            --bg-color: #f0fdf0;
+            --text-color: #333;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: linear-gradient(135deg, #f0fdf0 0%, #e0f8e0 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Glassmorphism utility */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: var(--glass-shadow);
+        }
+
+        /* Sidebar setup */
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border-radius: 0 20px 20px 0;
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            color: var(--primary-dark);
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-color);
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 2rem;
+            min-height: 100vh;
+            width: calc(100% - 250px);
+        }
+
+        /* Navbar top */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+            border-radius: 15px;
+        }
+
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-dark);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(144, 238, 144, 0.3);
+        }
+
+        /* Notifications */
+        .messages {
+            margin-bottom: 1rem;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    {% if user.is_authenticated %}
+    <nav class="sidebar glass-card">
+        <h2>Smart Attendance</h2>
+
+        {% if user.role == 'ADMIN' or user.is_superuser %}
+        <a href="{% url 'admin:index' %}" class="nav-link">Django Admin</a>
+        {% elif user.role == 'HOD' %}
+        <a href="{% url 'hod_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'hod_departments' %}" class="nav-link">Departments</a>
+        {% elif user.role == 'STAFF' %}
+        <a href="{% url 'staff_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'staff_records' %}" class="nav-link">Records</a>
+        {% elif user.role == 'STUDENT' %}
+        <a href="{% url 'student_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'student_scan' %}" class="nav-link">Scan QR</a>
+        {% endif %}
+
+        <div style="flex-grow: 1;"></div>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="nav-link"
+                style="width: 100%; text-align: left; background: none; border: none; cursor: pointer;">Logout</button>
+        </form>
+    </nav>
+    {% endif %}
+
+    <main class="main-content {% if not user.is_authenticated %}w-100{% endif %}" {% if not user.is_authenticated %}style="margin-left: 0; width: 100%; display: flex; justify-content: center; align-items: center;" {% endif %}>
+
+        {% if user.is_authenticated %}
+        <header class="topbar glass-card">
+            <div>
+                <h3 style="margin:0;">{% block page_title %}Dashboard{% endblock %}</h3>
+            </div>
+            <div class="user-info">
+                <span>Welcome, <strong>{{ user.first_name|default:user.username }}</strong> ({{ user.get_role_display }})</span>
+            </div>
+        </header>
+        {% endif %}
+
+        <div class="content">
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="message {{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

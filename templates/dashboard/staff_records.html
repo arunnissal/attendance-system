@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Session Records{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="padding: 1.5rem;">
+    <h4>Previous Sessions</h4>
+
+    <div style="overflow-x: auto; margin-top: 1rem;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--primary-color);">
+                    <th style="padding: 1rem;">Date</th>
+                    <th style="padding: 1rem;">Time</th>
+                    <th style="padding: 1rem;">Subject</th>
+                    <th style="padding: 1rem;">Total Present</th>
+                    <th style="padding: 1rem;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in sessions %}
+                <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);">
+                    <td style="padding: 1rem;">{{ session.date|date:"M d, Y" }}</td>
+                    <td style="padding: 1rem;">{{ session.start_time|time:"H:i" }}</td>
+                    <td style="padding: 1rem;">{{ session.subject.name }} ({{ session.subject.code }})</td>
+                    <td style="padding: 1rem;">{{ session.attendances.count }}</td>
+                    <td style="padding: 1rem;">
+                        <a href="?download=csv&session_id={{ session.id }}" class="btn btn-outline"
+                            style="padding: 0.4rem 1rem; font-size: 0.9rem;">Download CSV</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 1rem; text-align: center;">No previous sessions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

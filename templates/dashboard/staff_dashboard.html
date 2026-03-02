@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Staff Dashboard{% endblock %}
+
+{% block content %}
+<div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+
+    <!-- Subject Selection -->
+    <div class="glass-card" style="padding: 1.5rem; flex: 1; min-width: 300px;">
+        <h4>Start a Session</h4>
+        <p>Select a subject to start taking attendance</p>
+
+        <form id="start-session-form" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <div class="form-group">
+                <select name="subject_id" id="subject_id" class="form-control" required>
+                    <option value="" disabled selected>Select Subject</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.code }})</option>
+                    {% empty %}
+                    <option value="" disabled>No subjects assigned</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" onclick="startSession()" class="btn" style="width: 100%;">Generate Session</button>
+        </form>
+    </div>
+
+    <!-- Active Session View -->
+    <div class="glass-card" id="active-session-card" style="padding: 1.5rem; flex: 2; min-width: 400px; display: none;">
+        <h4 style="color: red; display: flex; justify-content: space-between; align-items: center;">
+            <span class="blinking-dot"></span> LIVE Session
+            <span id="timer" style="font-size: 1rem; color: #333;">Valid for: 60s</span>
+        </h4>
+
+        <div style="display: flex; gap: 2rem; margin-top: 1.5rem;">
+            <!-- QR and OTP -->
+            <div style="text-align: center; flex: 1;">
+                <img id="qr-image" src="" alt="QR Code"
+                    style="width: 200px; height: 200px; border-radius: 10px; border: 1px solid #ccc; padding: 10px; background: white;">
+                <h3 style="margin-top: 1rem; color: var(--primary-dark); font-size: 2rem; letter-spacing: 5px;"
+                    id="otp-display"></h3>
+                <p>Enter OTP or Scan QR</p>
+            </div>
+
+            <!-- Live Attendance List -->
+            <div style="flex: 2; border-left: 1px solid rgba(0,0,0,0.1); padding-left: 2rem;">
+                <h5>Attendance <span id="attendance-count" style="float: right; color: var(--primary-dark);">0 /
+                        0</span></h5>
+                <div style="max-height: 250px; overflow-y: auto; margin-top: 1rem;">
+                    <ul id="attendance-list" style="list-style: none; padding: 0;">
+                        <!-- JS injected list -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .blinking-dot {
+        width: 15px;
+        height: 15px;
+        background-color: red;
+        border-radius: 50%;
+        display: inline-block;
+        animation: blink 1s infinite;
+        margin-right: 10px;
+    }
+
+    @keyframes blink {
+        0% {
+            opacity: 1;
+            box-shadow: 0 0 10px red;
+        }
+
+        50% {
+            opacity: 0.3;
+            box-shadow: none;
+        }
+
+        100% {
+            opacity: 1;
+            box-shadow: 0 0 10px red;
+        }
+    }
+
+    .att-item {
+        background: rgba(255, 255, 255, 0.8);
+        padding: 0.8rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        border-left: 4px solid var(--primary-color);
+        display: flex;
+        justify-content: space-between;
+    }
+</style>
+
+<script>
+    let currentSessionId = null;
+    let refreshInterval = null;
+    let countdownInterval = null;
+    let countdown = 60;
+
+    function startSession() {
+        const subjectId = document.getElementById('subject_id').value;
+        if (!subjectId) {
+            alert("Please select a subject");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('subject_id', subjectId);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "start_session" %}', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    currentSessionId = data.session_id;
+                    document.getElementById('start-session-form').style.display = 'none';
+                    document.getElementById('active-session-card').style.display = 'block';
+                    refreshSession(); // Initial setup
+
+                    // Set intervals
+                    refreshInterval = setInterval(refreshSession, 60000);
+                } else {
+                    alert(data.message);
+                }
+            });
+    }
+
+    function refreshSession() {
+        if (!currentSessionId) return;
+
+        fetch(`/attendance/regenerate_session/${currentSessionId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update QR and OTP
+                    document.getElementById('qr-image').src = `data:image/png;base64,${data.qr_base64}`;
+                    document.getElementById('otp-display').innerText = data.otp;
+
+                    // Update count
+                    document.getElementById('attendance-count').innerText = `${data.present_count} / ${data.total_count}`;
+
+                    // Update list
+                    const listEl = document.getElementById('attendance-list');
+                    listEl.innerHTML = '';
+                    data.attendances.forEach(att => {
+                        listEl.innerHTML += `<li class="att-item">
+                        <span><strong>${att.name}</strong> (${att.roll_number})</span>
+                        <span style="color: #666; font-size: 0.9rem;">${att.time_marked}</span>
+                    </li>`;
+                    });
+
+                    // Reset timer
+                    countdown = 60;
+                    clearInterval(countdownInterval);
+                    document.getElementById('timer').innerText = `Valid for: 60s`;
+                    countdownInterval = setInterval(() => {
+                        countdown--;
+                        document.getElementById('timer').innerText = `Valid for: ${countdown}s`;
+                        if (countdown <= 0) clearInterval(countdownInterval);
+                    }, 1000);
+
+                }
+            });
+    }
+</script>
+{% endblock %}

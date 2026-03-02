@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="glass-card" style="max-width: 500px; margin: 0 auto; padding: 2rem; text-align: center;">
+    <h4>Scan QR or Enter OTP</h4>
+    <p style="color: #666; margin-bottom: 2rem;">Mark your presence for live session</p>
+
+    <!-- OTP Form -->
+    <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(0,0,0,0.1);">
+        <form id="otp-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <input type="text" id="otp" name="otp" class="form-control" placeholder="Enter 6-digit OTP" required
+                    style="font-size: 1.5rem; text-align: center; letter-spacing: 5px;">
+            </div>
+            <button type="button" onclick="submitAttendance()" class="btn" style="width: 100%;">Submit OTP</button>
+        </form>
+    </div>
+
+    <!-- QR Reader area Placeholder -->
+    <div>
+        <p style="margin-bottom: 1rem;">Or scan the QR code using your device camera.</p>
+        <div id="reader"
+            style="width: 100%; min-height: 250px; background: #fff; border-radius: 10px; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center;">
+            <p id="reader-placeholder" style="color: #999;">Camera access required to scan QR Code.</p>
+        </div>
+        <button type="button" id="start-scanner-btn" class="btn btn-outline"
+            style="margin-top: 1rem; width: 100%;">Start Scanner</button>
+        <button type="button" id="stop-scanner-btn" class="btn btn-outline"
+            style="margin-top: 1rem; width: 100%; display: none; color: #dc3545; border-color: #dc3545;">Stop
+            Scanner</button>
+        <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">(Note: On mobile, you can use built-in scanners
+            that direct to the scanned URL instead)</p>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+    function submitAttendance(token = '') {
+        const otp = document.getElementById('otp').value;
+        if (!otp && !token) {
+            alert("Please enter OTP or provide Token");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('otp', otp);
+        formData.append('token', token);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "mark_attendance" %}', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert("Attendance marked successfully!");
+                    window.location.href = "{% url 'student_dashboard' %}";
+                } else if (data.status === 'info') {
+                    alert(data.message);
+                    window.location.href = "{% url 'student_dashboard' %}";
+                } else {
+                    alert(data.message);
+                }
+            });
+    }
+
+    // QR Code Scanner Logic
+    let html5QrcodeScanner = null;
+
+    document.getElementById('start-scanner-btn').addEventListener('click', () => {
+        document.getElementById('reader-placeholder').style.display = 'none';
+        document.getElementById('start-scanner-btn').style.display = 'none';
+        document.getElementById('stop-scanner-btn').style.display = 'block';
+
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            /* verbose= */ false);
+
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    });
+
+    document.getElementById('stop-scanner-btn').addEventListener('click', () => {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().then(() => {
+                document.getElementById('reader-placeholder').style.display = 'block';
+                document.getElementById('start-scanner-btn').style.display = 'block';
+                document.getElementById('stop-scanner-btn').style.display = 'none';
+            });
+        }
+    });
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // Stop scanning after successful scan
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+
+        // Pass the token to the submit method
+        submitAttendance(decodedText);
+    }
+
+    function onScanFailure(error) {
+        // handle scan failure, usually better to ignore and keep scanning.
+        // console.warn(`Code scan error = ${error}`);
+    }
+</script>
+{% endblock %}

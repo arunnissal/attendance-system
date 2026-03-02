@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Student Dashboard{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        const labels = JSON.parse('{{ chart_labels|safe }}');
+        const data = JSON.parse('{{ chart_data|safe }}');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Attendance %',
+                    data: data,
+                    backgroundColor: 'rgba(144, 238, 144, 0.6)',
+                    borderColor: 'rgba(122, 203, 122, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+
+    <!-- Summary Card -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Overview</h4>
+        <div style="margin-top: 1rem; font-size: 1.1rem; line-height: 1.8;">
+            <p><strong>Total Sessions Conducted:</strong> {{ total_sessions }}</p>
+            <p><strong>Total Sessions Attended:</strong> {{ total_attended }}</p>
+            <p><strong>Overall Attendance %:</strong>
+                <span
+                    style="color: {% if attendance_percentage >= 75 %}#28a745{% else %}#dc3545{% endif %}; font-weight: bold;">
+                    {{ attendance_percentage }}%
+                </span>
+            </p>
+        </div>
+
+        <div style="margin-top: 2rem; height: 250px;">
+            <canvas id="attendanceChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Attendances -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h4>Recent Attendances</h4>
+        <ul style="list-style: none; padding: 0; margin-top: 1rem;">
+            {% for att in recent_attendances %}
+            <li
+                style="padding: 1rem; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between;">
+                <div>
+                    <strong>{{ att.session.subject.name }}</strong> ({{ att.session.subject.code }})
+                </div>
+                <div style="color: #666;">
+                    {{ att.time_marked|date:"M d, H:i" }}
+                </div>
+            </li>
+            {% empty %}
+            <li style="padding: 1rem; text-align: center; color: #666;">No recent attendances.</li>
+            {% endfor %}
+        </ul>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <a href="{% url 'student_scan' %}" class="btn" style="width: 100%;">Mark Attendance Now</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
