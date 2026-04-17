@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Admin Control Panel{% endblock %}
+
+{% block content %}
+<div class="row" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+
+    <!-- Left Column: Statistics & Department Creation -->
+    <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 2rem;">
+
+        <!-- Stats Card -->
+        <div class="glass-card"
+            style="padding: 1.5rem; border-radius: 15px; display: flex; justify-content: space-around; text-align: center;">
+            <div>
+                <h2 style="color: var(--primary-dark); margin-bottom: 0.5rem;">{{ total_departments }}</h2>
+                <p style="color: #666; font-size: 0.9rem;">Departments</p>
+            </div>
+            <div style="border-left: 2px solid rgba(0,0,0,0.1);"></div>
+            <div>
+                <h2 style="color: var(--primary-dark); margin-bottom: 0.5rem;">{{ total_hods }}</h2>
+                <p style="color: #666; font-size: 0.9rem;">HoD Accounts</p>
+            </div>
+        </div>
+
+        <!-- Create Department -->
+        <div class="glass-card" style="padding: 1.5rem; border-radius: 15px;">
+            <h4>Create New Department</h4>
+            <form method="post" action="{% url 'create_department' %}" style="margin-top: 1rem;">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Department Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. Mechanical Engineering"
+                        required>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Create Department</button>
+            </form>
+        </div>
+
+        <!-- Create HoD -->
+        <div class="glass-card" style="padding: 1.5rem; border-radius: 15px;">
+            <h4>Create HoD Account</h4>
+            <form method="post" action="{% url 'create_hod' %}" style="margin-top: 1rem;">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>First Name</label>
+                        <input type="text" name="first_name" class="form-control">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Last Name</label>
+                        <input type="text" name="last_name" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" class="form-control" required minlength="4">
+                </div>
+                <button type="submit" class="btn" style="width: 100%; background: #28a745;">Create HoD</button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Departments & HoD Assignments -->
+    <div class="glass-card" style="flex: 2; min-width: 400px; border-radius: 15px; padding: 1.5rem;">
+        <h4>Department & HoD Assignments</h4>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">Manage which HoD is assigned to which
+            department. (One-to-One mapping)</p>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(0,0,0,0.1);">
+                        <th style="padding: 1rem;">Department</th>
+                        <th style="padding: 1rem;">Current HoD</th>
+                        <th style="padding: 1rem; text-align: center;">Reassign HoD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dept in departments %}
+                    <tr class="table-row">
+                        <td style="padding: 1rem; font-weight: 500;">
+                            {{ dept.name }}
+                        </td>
+                        <td style="padding: 1rem;">
+                            {% if dept.hod %}
+                            <span
+                                style="background: var(--primary-color); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem;">{{
+                                dept.hod.username }}</span>
+                            {% else %}
+                            <span style="color: #dc3545; font-weight: 500; font-size: 0.9rem;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem; text-align: center;">
+                            <form method="post" action="{% url 'assign_hod' %}"
+                                style="display: flex; gap: 0.5rem; justify-content: center;">
+                                {% csrf_token %}
+                                <input type="hidden" name="department_id" value="{{ dept.id }}">
+                                <select name="hod_id" class="form-control"
+                                    style="width: auto; min-width: 120px; padding: 0.3rem;" required>
+                                    <option value="" disabled selected>Select HoD...</option>
+                                    {% for h in hods %}
+                                    <option value="{{ h.id }}" {% if dept.hod and dept.hod.id == h.id %}selected{% endif %}>{{ h.username }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn"
+                                    style="padding: 0.3rem 0.8rem; font-size: 0.9rem;">Assign</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="padding: 2rem; text-align: center; color: #666;">No departments created
+                            yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .table-row {
+        transition: background 0.3s ease;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .table-row:hover {
+        background: rgba(144, 238, 144, 0.1);
+    }
+</style>
+
+{% endblock %}

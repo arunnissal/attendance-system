@@ -9,7 +9,7 @@ class CustomLoginView(LoginView):
     def get_success_url(self):
         user = self.request.user
         if user.is_superuser or user.role == 'ADMIN':
-            return reverse_lazy('admin:index')
+            return reverse_lazy('admin_dashboard')
         elif user.role == 'HOD':
             return reverse_lazy('hod_dashboard')
         elif user.role == 'STAFF':

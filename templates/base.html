@@ -209,10 +209,11 @@
         <h2>Smart Attendance</h2>
 
         {% if user.role == 'ADMIN' or user.is_superuser %}
-        <a href="{% url 'admin:index' %}" class="nav-link">Django Admin</a>
+        <a href="{% url 'admin_dashboard' %}" class="nav-link">Admin Dashboard</a>
         {% elif user.role == 'HOD' %}
         <a href="{% url 'hod_dashboard' %}" class="nav-link">Dashboard</a>
-        <a href="{% url 'hod_departments' %}" class="nav-link">Departments</a>
+        <a href="{% url 'manage_staff' %}" class="nav-link">Manage Staff</a>
+        <a href="{% url 'manage_students' %}" class="nav-link">Manage Students</a>
         {% elif user.role == 'STAFF' %}
         <a href="{% url 'staff_dashboard' %}" class="nav-link">Dashboard</a>
         <a href="{% url 'staff_records' %}" class="nav-link">Records</a>

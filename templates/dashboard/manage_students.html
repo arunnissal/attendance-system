@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Manage Students ({{ department.name }}){% endblock %}
+
+{% block content %}
+<div class="glass-card" style="padding: 1.5rem; border-radius: 15px;">
+
+    <!-- Filters & Search -->
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <h4>Student List</h4>
+        <form method="get" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <input type="text" name="q" value="{{ q }}" placeholder="Search name or roll no..." class="form-control"
+                style="width: 250px;">
+            <select name="status" class="form-control" style="width: 150px;">
+                <option value="">All Statuses</option>
+                <option value="Safe" {% if status_filter == 'Safe' %}selected{% endif %}>Safe (>=75%)</option>
+                <option value="Shortage" {% if status_filter == 'Shortage' %}selected{% endif %}>Shortage (<75%)< /option>
+            </select>
+            <button type="submit" class="btn">Filter</button>
+            <a href="{% url 'manage_students' %}" class="btn btn-outline">Clear</a>
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 2px solid rgba(0,0,0,0.1);">
+                    <th style="padding: 1rem;">Student Name</th>
+                    <th style="padding: 1rem;">Roll Number</th>
+                    <th style="padding: 1rem;">Department</th>
+                    <th style="padding: 1rem; text-align: center;">Attendance</th>
+                    <th style="padding: 1rem; text-align: center;">Status</th>
+                    <th style="padding: 1rem; text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in student_data %}
+                <tr class="table-row">
+                    <td style="padding: 1rem; font-weight: 500;">
+                        {{ data.user.get_full_name|default:data.user.username }}
+                    </td>
+                    <td style="padding: 1rem;">{{ data.user.username }}</td>
+                    <td style="padding: 1rem;">{{ data.department_name }}</td>
+                    <td
+                        style="padding: 1rem; text-align: center; font-weight: bold; font-size: 1.1rem; color: {% if data.percentage >= 75 %}#28a745{% else %}#dc3545{% endif %};">
+                        {{ data.percentage }}%
+                    </td>
+                    <td style="padding: 1rem; text-align: center;">
+                        {% if data.status == 'Safe' %}
+                        <span
+                            style="background: #28a745; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Safe</span>
+                        {% else %}
+                        <span
+                            style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">Shortage</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem; text-align: center; white-space: nowrap;">
+                        <a href="{% url 'student_detail' data.user.id %}" class="btn btn-outline"
+                            style="padding: 0.3rem 0.8rem; font-size: 0.9rem; color: #17a2b8; border-color: #17a2b8; margin-right: 4px;">View</a>
+                        <button class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.9rem;"
+                            onclick="openEditModal({{ data.user.id }}, '{{ data.user.first_name }}', '{{ data.user.last_name }}', '{{ data.user.email }}', '{{ data.user.username }}')">Edit</button>
+                        <button class="btn btn-outline"
+                            style="padding: 0.3rem 0.8rem; font-size: 0.9rem; color: #ffb822; border-color: #ffb822;"
+                            onclick="openPasswordModal({{ data.user.id }})">Reset Pwd</button>
+                        <form method="post" action="{% url 'delete_user' data.user.id %}" style="display: inline;"
+                            onsubmit="return confirm('Are you sure you want to delete this student?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline"
+                                style="padding: 0.3rem 0.8rem; font-size: 0.9rem; color: #dc3545; border-color: #dc3545;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 2rem; text-align: center; color: #666;">No students found matching
+                        your criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div id="editModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 400px; padding: 2rem; background: rgba(255,255,255,0.95);">
+        <h4>Edit Student Details</h4>
+        <form id="editForm" method="post" action="">
+            {% csrf_token %}
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Roll Number (Username)</label>
+                <input type="text" name="username" id="edit_username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" name="first_name" id="edit_first_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" name="last_name" id="edit_last_name" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="edit_email" class="form-control">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn" style="flex: 1;">Save</button>
+                <button type="button" class="btn btn-outline" style="flex: 1;"
+                    onclick="closeModal('editModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="passwordModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 400px; padding: 2rem; background: rgba(255,255,255,0.95);">
+        <h4>Reset Password</h4>
+        <form id="passwordForm" method="post" action="">
+            {% csrf_token %}
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>New Password</label>
+                <input type="password" name="password" class="form-control" required minlength="4">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn" style="flex: 1; background: #ffb822;">Reset Password</button>
+                <button type="button" class="btn btn-outline" style="flex: 1;"
+                    onclick="closeModal('passwordModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .table-row {
+        transition: background 0.3s ease;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .table-row:hover {
+        background: rgba(144, 238, 144, 0.1);
+    }
+</style>
+
+<script>
+    function openEditModal(userId, fName, lName, email, rollNo) {
+        document.getElementById('editForm').action = `/hod/user/${userId}/edit/`;
+        document.getElementById('edit_username').value = rollNo;
+        document.getElementById('edit_first_name').value = fName !== 'None' ? fName : '';
+        document.getElementById('edit_last_name').value = lName !== 'None' ? lName : '';
+        document.getElementById('edit_email').value = email !== 'None' ? email : '';
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function openPasswordModal(userId) {
+        document.getElementById('passwordForm').action = `/hod/user/${userId}/reset-password/`;
+        document.getElementById('passwordModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+</script>
+{% endblock %}

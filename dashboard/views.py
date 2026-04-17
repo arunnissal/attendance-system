@@ -1,13 +1,92 @@
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from accounts.decorators import hod_required, staff_required, student_required
+from accounts.decorators import hod_required, staff_required, student_required, admin_required
 from django.contrib.auth import get_user_model
 from core.models import Subject, Department
 from attendance.models import Session, Attendance
 from django.db.models import Count, Q
 from django.contrib import messages
+from django.shortcuts import render, redirect, get_object_or_404
 
 User = get_user_model()
+
+@login_required
+@admin_required()
+def admin_dashboard(request):
+    departments = Department.objects.all()
+    hods = User.objects.filter(role='HOD')
+    
+    total_departments = departments.count()
+    total_hods = hods.count()
+    
+    context = {
+        'departments': departments,
+        'hods': hods,
+        'total_departments': total_departments,
+        'total_hods': total_hods
+    }
+    return render(request, 'dashboard/admin_dashboard.html', context)
+
+@login_required
+@admin_required()
+def create_hod(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        
+        if User.objects.filter(username=username).exists():
+            messages.error(request, f"Username {username} already exists.")
+        else:
+            User.objects.create_user(
+                username=username, 
+                password=password, 
+                first_name=first_name, 
+                last_name=last_name, 
+                email=email,
+                role='HOD'
+            )
+            messages.success(request, f"HoD user {username} created successfully.")
+            
+    return redirect('admin_dashboard')
+
+@login_required
+@admin_required()
+def create_department(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        if Department.objects.filter(name=name).exists():
+            messages.error(request, f"Department {name} already exists.")
+        else:
+            Department.objects.create(name=name)
+            messages.success(request, f"Department {name} created successfully.")
+            
+    return redirect('admin_dashboard')
+
+@login_required
+@admin_required()
+def assign_hod(request):
+    if request.method == 'POST':
+        department_id = request.POST.get('department_id')
+        hod_id = request.POST.get('hod_id')
+        
+        department = get_object_or_404(Department, id=department_id)
+        if not hod_id:
+            department.hod = None
+            department.save()
+            messages.success(request, f"HoD unassigned from {department.name}.")
+        else:
+            hod = get_object_or_404(User, id=hod_id, role='HOD')
+            
+            # Remove this HoD from any other department first (OneToOne field logic usually handles this, but explicitly handling it is safer)
+            Department.objects.filter(hod=hod).update(hod=None)
+            
+            department.hod = hod
+            department.save()
+            messages.success(request, f"{hod.username} assigned as HoD of {department.name}.")
+            
+    return redirect('admin_dashboard')
 
 @login_required
 @hod_required()
@@ -164,4 +243,167 @@ def student_dashboard(request):
 def student_scan(request):
     return render(request, 'dashboard/student_scan.html')
 
+import json
+from django.db.models import Count
 
+@login_required
+@hod_required()
+def manage_staff(request):
+    try:
+        department = request.user.department
+    except Department.DoesNotExist:
+        messages.error(request, "No department assigned to your profile.")
+        return redirect('hod_dashboard')
+
+    staff_users = User.objects.filter(role='STAFF', subjects__department=department).distinct()
+    
+    staff_data = []
+    for staff in staff_users:
+        subjects_assigned = staff.subjects.filter(department=department)
+        total_sessions = Session.objects.filter(staff=staff, subject__department=department).count()
+        staff_data.append({
+            'user': staff,
+            'subjects': subjects_assigned,
+            'total_sessions': total_sessions
+        })
+        
+    context = {'staff_data': staff_data, 'department': department}
+    return render(request, 'dashboard/manage_staff.html', context)
+
+@login_required
+@hod_required()
+def manage_students(request):
+    try:
+        department = request.user.department
+    except Department.DoesNotExist:
+        messages.error(request, "No department assigned.")
+        return redirect('hod_dashboard')
+
+    q = request.GET.get('q', '')
+    status_filter = request.GET.get('status', '')
+
+    students = User.objects.filter(role='STUDENT', enrolled_subjects__department=department).distinct()
+
+    if q:
+        students = students.filter(
+            Q(first_name__icontains=q) | 
+            Q(last_name__icontains=q) | 
+            Q(username__icontains=q)
+        )
+
+    student_data = []
+    for student in students:
+        enrolled = student.enrolled_subjects.filter(department=department)
+        total_sessions = Session.objects.filter(subject__in=enrolled).count()
+        attended = Attendance.objects.filter(student=student, session__subject__department=department).count()
+        
+        percentage = 0
+        if total_sessions > 0:
+            percentage = round((attended / total_sessions) * 100, 2)
+            
+        status = 'Safe' if percentage >= 75 else 'Shortage'
+        
+        if status_filter and status_filter != status:
+            continue
+            
+        student_data.append({
+            'user': student,
+            'percentage': percentage,
+            'status': status,
+            'department_name': department.name
+        })
+
+    context = {
+        'student_data': student_data,
+        'department': department,
+        'q': q,
+        'status_filter': status_filter
+    }
+    return render(request, 'dashboard/manage_students.html', context)
+
+@login_required
+@hod_required()
+def student_detail(request, student_id):
+    try:
+        department = request.user.department
+    except Department.DoesNotExist:
+        return redirect('hod_dashboard')
+        
+    student = get_object_or_404(User, id=student_id, role='STUDENT', enrolled_subjects__department=department)
+    enrolled_subjects = student.enrolled_subjects.filter(department=department)
+    
+    subject_details = []
+    chart_labels = []
+    chart_attended = []
+    chart_absent = []
+    
+    for sub in enrolled_subjects:
+        total = Session.objects.filter(subject=sub).count()
+        attended = Attendance.objects.filter(student=student, session__subject=sub).count()
+        absent = total - attended
+        percentage = round((attended/total)*100, 2) if total > 0 else 0
+        
+        subject_details.append({
+            'subject': sub,
+            'total': total,
+            'attended': attended,
+            'absent': absent,
+            'percentage': percentage
+        })
+        chart_labels.append(sub.code)
+        chart_attended.append(attended)
+        chart_absent.append(absent)
+        
+    context = {
+        'student': student,
+        'subject_details': subject_details,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_attended': json.dumps(chart_attended),
+        'chart_absent': json.dumps(chart_absent),
+    }
+    return render(request, 'dashboard/student_detail.html', context)
+
+@login_required
+@hod_required()
+def edit_user(request, user_id):
+    if request.method == 'POST':
+        user = get_object_or_404(User, id=user_id)
+        user.first_name = request.POST.get('first_name')
+        user.last_name = request.POST.get('last_name')
+        user.email = request.POST.get('email')
+        
+        if user.role == 'STUDENT':
+            new_username = request.POST.get('username')
+            if new_username and not User.objects.filter(username=new_username).exclude(id=user.id).exists():
+                user.username = new_username
+        user.save()
+        messages.success(request, f"User {user.username} updated successfully.")
+        
+        return redirect('manage_staff' if user.role == 'STAFF' else 'manage_students')
+    return redirect('hod_dashboard')
+
+@login_required
+@hod_required()
+def reset_password(request, user_id):
+    if request.method == 'POST':
+        user = get_object_or_404(User, id=user_id)
+        new_password = request.POST.get('password')
+        if new_password:
+            user.set_password(new_password)
+            user.save()
+            messages.success(request, f"Password reset for {user.username} successfully.")
+        
+        return redirect('manage_staff' if user.role == 'STAFF' else 'manage_students')
+    return redirect('hod_dashboard')
+
+@login_required
+@hod_required()
+def delete_user(request, user_id):
+    if request.method == 'POST':
+        user = get_object_or_404(User, id=user_id)
+        role = user.role
+        user.delete()
+        messages.success(request, "User deleted successfully.")
+        
+        return redirect('manage_staff' if role == 'STAFF' else 'manage_students')
+    return redirect('hod_dashboard')

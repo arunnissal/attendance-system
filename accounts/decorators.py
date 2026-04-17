@@ -11,7 +11,10 @@ def role_required(*roles):
     return user_passes_test(check_role, login_url='/accounts/login/')
 
 def admin_required():
-    return role_required('ADMIN')
+    return user_passes_test(
+        lambda u: u.is_active and u.is_admin(),
+        login_url='login'
+    )
 
 def hod_required():
     return role_required('HOD')

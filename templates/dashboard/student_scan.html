@@ -36,7 +36,7 @@
     </div>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
     function submitAttendance(token = '') {
         const otp = document.getElementById('otp').value;
@@ -65,6 +65,10 @@
                 } else {
                     alert(data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("An error occurred while communicating with the server.");
             });
     }
 
@@ -76,12 +80,25 @@
         document.getElementById('start-scanner-btn').style.display = 'none';
         document.getElementById('stop-scanner-btn').style.display = 'block';
 
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader",
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            /* verbose= */ false);
+        try {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                },
+                false);
 
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        } catch (err) {
+            console.error("Camera startup error:", err);
+            alert("Failed to start camera. Please ensure you have granted camera permissions and are using a secure connection (HTTPS or localhost).");
+
+            document.getElementById('reader-placeholder').style.display = 'block';
+            document.getElementById('start-scanner-btn').style.display = 'block';
+            document.getElementById('stop-scanner-btn').style.display = 'none';
+        }
     });
 
     document.getElementById('stop-scanner-btn').addEventListener('click', () => {
